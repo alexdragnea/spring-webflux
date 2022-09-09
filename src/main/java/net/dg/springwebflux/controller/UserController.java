@@ -1,13 +1,19 @@
 package net.dg.springwebflux.controller;
 
 import lombok.AllArgsConstructor;
+import net.dg.springwebflux.client.WebClientUtil;
 import net.dg.springwebflux.model.User;
 import net.dg.springwebflux.service.UserService;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import reactor.util.function.Tuple2;
+
+import java.time.Duration;
+import java.util.stream.Stream;
 
 @RestController
 @AllArgsConstructor
@@ -15,6 +21,7 @@ import reactor.core.publisher.Mono;
 public class UserController {
 
     private final UserService userService;
+    private final WebClientUtil webClientUtil;
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
@@ -51,5 +58,17 @@ public class UserController {
     @GetMapping("/search")
     public Flux<User> searchUsers(@RequestParam("name") String name) {
         return userService.fetchUsers(name);
+    }
+
+    @GetMapping(value = "/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public Flux<User> streamAllUsers() {
+        return userService
+                .getAllUsers()
+                .flatMap(user -> Flux
+                        .zip(Flux.interval(Duration.ofSeconds(2)),
+                                Flux.fromStream(Stream.generate(() -> user))
+                        )
+                        .map(Tuple2::getT2)
+                );
     }
 }
